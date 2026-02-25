@@ -1,92 +1,71 @@
-<div class="app-container" [class.stats-expanded]="statsExpanded()">
+<div class="app-container">
+    <!-- Header -->
     <header class="main-header animate-fade-in">
         <div class="logo">
-            <h1>AniCompare</h1>
+            <h1>Anilist Compare</h1>
         </div>
         <button class="btn-reset" (click)="resetAll()">
             <span>✕</span> Reset
         </button>
     </header>
 
-    <!-- User Columns -->
-    <div class="columns-area" [class.hidden]="statsExpanded()">
-        <div class="user-columns-scroll">
-            @for (user of users(); track $index; let i = $index) {
-            <section class="user-column glass-card">
-                <div class="user-input-area">
-                    @if (user.data) {
-                    <!-- Loaded state: greyed out input + X to clear -->
-                    <div class="input-wrapper">
-                        <input type="text" [value]="user.name" disabled class="input-disabled">
-                    </div>
-                    <button class="btn-clear-user" (click)="clearUser(i)">✕</button>
-                    } @else {
-                    <!-- Empty state: editable input + fetch button -->
-                    <div class="input-wrapper">
-                        <input type="text" [(ngModel)]="user.name" (keyup.enter)="fetchUser(i)"
-                            (focus)="onInputFocus(i)" (blur)="onInputBlur(i)" placeholder="AniList Username">
-                        @if (user.showSuggestions && filteredSuggestions(i).length > 0) {
-                        <div class="suggestions-dropdown">
-                            @for (suggestion of filteredSuggestions(i); track suggestion) {
-                            <button class="suggestion-item" (mousedown)="selectSuggestion(i, suggestion)">
-                                {{ suggestion }}
-                            </button>
-                            }
-                        </div>
-                        }
-                    </div>
-                    <button class="btn-primary btn-sm" (click)="fetchUser(i)" [disabled]="user.loading">
-                        {{ user.loading ? '...' : '→' }}
-                    </button>
-                    }
-                </div>
-
-                @if (user.data) {
-                <div class="user-profile animate-fade-in">
-                    <img [src]="user.data.avatar" class="avatar">
-                    <h2>{{ user.data.name }}</h2>
-                    <p class="stats-mini">{{ user.data.completedCount }} Completed</p>
-                </div>
-                }
-            </section>
-            }
-
-            <!-- Floating Add Button -->
-            <button class="btn-add-user" (click)="addUser()">
-                <span>＋</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- Stats Panel -->
-    <section class="stats-column glass-card" [class.expanded]="statsExpanded()">
-        <div class="stats-header">
-            <h3>Comparison</h3>
-            <button class="btn-expand" (click)="toggleStatsExpand()">
-                {{ statsExpanded() ? '⤓ Collapse' : '⤢ Expand' }}
-            </button>
-        </div>
-
-        @if (statsExpanded()) {
-        <div class="compared-users-bar">
-            @for (user of allLoadedUsers(); track user.index) {
-            @if (user.data) {
-            <button class="compared-user-chip" [class.excluded]="isExcluded(user.index)"
-                (click)="toggleUserExclusion(user.index)"
-                [title]="isExcluded(user.index) ? 'Click to include' : 'Click to exclude'">
-                <img [src]="user.data.avatar" class="chip-avatar">
-                <span>{{ user.data.name }}</span>
-            </button>
-            }
-            }
+    <!-- User Chips Bar -->
+    <div class="chips-bar">
+        <!-- Loaded user chips -->
+        @for (user of allLoadedUsers(); track user.index) {
+        <div class="user-chip" [class.excluded]="isExcluded(user.index)" (click)="toggleUserExclusion(user.index)">
+            <img [src]="user.data!.avatar" class="chip-avatar" [title]="user.data!.name">
+            <span class="chip-name">{{ user.data!.name }}</span>
+            <span class="chip-count">{{ user.data!.completedCount }}</span>
+            <button class="chip-remove" (click)="$event.stopPropagation(); removeUser(user.index)"
+                title="Remove user">✕</button>
         </div>
         }
 
+        <!-- Loading chips for users still being fetched -->
+        @for (user of users(); track $index; let i = $index) {
+        @if (user.loading) {
+        <div class="user-chip loading-chip">
+            <div class="chip-spinner"></div>
+            <span class="chip-name">{{ user.name }}</span>
+        </div>
+        }
+        }
+
+        <!-- Add new user chip -->
+        @if (!addingUser()) {
+        <button class="chip-add-btn" (click)="startAdding()">
+            <span>＋</span> Add User
+        </button>
+        } @else {
+        <div class="chip-add-input glass-card">
+            <div class="add-input-wrapper">
+                <input #addInput type="text" [(ngModel)]="addingName" (keyup.enter)="confirmAdding()"
+                    (keyup.escape)="cancelAdding()" (focus)="addingSuggestions.set(true)" (blur)="onAddBlur()"
+                    placeholder="Username..." autofocus>
+                @if (addingSuggestions() && filteredAddSuggestions().length > 0) {
+                <div class="suggestions-dropdown">
+                    @for (s of filteredAddSuggestions(); track s) {
+                    <button class="suggestion-item" (mousedown)="selectAddSuggestion(s)">{{ s }}</button>
+                    }
+                </div>
+                }
+            </div>
+            <button class="btn-cancel" (click)="cancelAdding()">✕</button>
+        </div>
+        }
+    </div>
+
+    <!-- Main Comparison Panel -->
+    <section class="comparison-panel glass-card">
+
         @if (stats()) {
-        <div class="comparison-stats animate-fade-in">
-            <div class="stat-cards-row">
+        <!-- Stats: 2-column layout -->
+        <div class="stats-columns">
+            <!-- Left: global stats -->
+            <div class="stats-left">
                 <div class="stat-card">
-                    <span class="label">All Shared</span>
+                    <span class="label">Shared</span>
                     <span class="value">{{ stats()?.sharedCount }}</span>
                 </div>
                 <div class="stat-card">
@@ -99,65 +78,80 @@
                 </div>
             </div>
 
-            <div class="watch-time-comp">
+            <div class="stats-divider"></div>
+
+            <!-- Right: per-user watch times -->
+            <div class="stats-right">
                 @for (wt of stats()?.watchTimes; track wt.name) {
-                <div class="time-stat">
-                    <span class="name">{{ wt.name }}</span>
-                    <span class="time">{{ formatTime(wt.minutes) }}</span>
-                </div>
-                }
-            </div>
-
-            <!-- Overlap Filter Tabs -->
-            <div class="overlap-filter">
-                <span class="filter-label">Seen by:</span>
-                <button class="filter-tab" [class.active]="selectedOverlap() === null" (click)="setOverlapFilter(null)">
-                    All {{ loadedUsers().length }}
-                </button>
-                @for (level of overlapLevels(); track level) {
-                @if (level !== loadedUsers().length) {
-                <button class="filter-tab" [class.active]="selectedOverlap() === level"
-                    (click)="setOverlapFilter(level)">
-                    {{ overlapLabel(level) }}
-                </button>
-                }
-                }
-            </div>
-
-            <div class="common-shows-list">
-                <h4>
-                    @if (selectedOverlap() === null) {
-                    Shows Everyone Has Watched ({{ filteredShared().length }})
-                    } @else {
-                    Shows {{ overlapLabel(selectedOverlap()!) }} Have Watched ({{ filteredShared().length }})
-                    }
-                </h4>
-                <div class="shared-list-scroll">
-                    @for (shared of filteredShared(); track shared.anime.id) {
-                    <div class="shared-item">
-                        <img [src]="shared.anime.coverImage" class="shared-thumb">
-                        <span class="title">{{ shared.anime.title }}</span>
-                        <div class="watchers">
-                            @for (s of shared.scores; track s.name) {
-                            <img [src]="s.avatar" [title]="s.name" class="watcher-avatar">
-                            }
-                        </div>
-                        <div class="shared-scores">
-                            @for (s of shared.scores; track s.name) {
-                            <span class="score-pill" [title]="s.name">{{ s.score > 0 ? s.score : '—' }}</span>
-                            }
-                        </div>
+                <div class="time-card">
+                    <img [src]="wt.avatar" class="time-avatar">
+                    <div class="time-info">
+                        <span class="time-name">{{ wt.name }}</span>
+                        <span class="time-val">{{ formatTime(wt.minutes) }}</span>
+                        <span class="time-unique">{{ wt.uniqueCount }} exclusive</span>
                     </div>
-                    }
-                    @if (filteredShared().length === 0) {
-                    <p class="no-shared">No shows found at this overlap level.</p>
-                    }
                 </div>
+                }
             </div>
         </div>
+
+        <!-- Filter + Sort Row -->
+        <div class="overlap-filter">
+            <span class="filter-label">Seen by:</span>
+            @for (level of overlapLevels(); track level) {
+            <button class="filter-tab" [class.active]="(selectedOverlap() ?? loadedUsers().length) === level"
+                (click)="setOverlapFilter(level === loadedUsers().length ? null : level)">
+                {{ overlapLabel(level) }}
+            </button>
+            }
+
+            <div class="filter-divider"></div>
+
+            <button class="filter-tab sort-btn active" (click)="toggleSort()">
+                {{ sortLabel() }}
+            </button>
+        </div>
+
+        <!-- Shared Anime List -->
+        <div class="shared-list-header">
+            <h3>
+                @if ((selectedOverlap() ?? loadedUsers().length) === loadedUsers().length) {
+                Shows Everyone Has Watched
+                } @else {
+                Shows {{ overlapLabel(selectedOverlap()!) }} Have Watched
+                }
+                <span class="count-badge">{{ filteredShared().length }}</span>
+            </h3>
+        </div>
+
+        <div class="shared-list">
+            @for (shared of filteredShared(); track shared.anime.id) {
+            <div class="shared-item">
+                <img [src]="shared.anime.coverImage" class="shared-thumb">
+                <span class="title">{{ shared.anime.title }}</span>
+                @if (shared.avgScore > 0) {
+                <span class="avg-score" title="Average score">★ {{ shared.avgScore }}</span>
+                }
+                <div class="watcher-scores">
+                    @for (s of shared.scores; track s.name) {
+                    <div class="watcher-score-pair" [title]="s.name">
+                        <img [src]="s.avatar" class="watcher-avatar">
+                        <span class="score-pill">{{ s.score > 0 ? s.score : '—' }}</span>
+                    </div>
+                    }
+                </div>
+            </div>
+            }
+
+            @if (filteredShared().length === 0) {
+            <p class="no-shared">No shows found at this overlap level.</p>
+            }
+        </div>
+
         } @else {
-        <div class="empty-stats">
-            <p>Add at least 2 users to compare lists.</p>
+        <div class="empty-state">
+            <h2>Compare AniList Profiles</h2>
+            <p>Add at least two users using the <strong>Add User</strong> button above to start comparing.</p>
         </div>
         }
     </section>
