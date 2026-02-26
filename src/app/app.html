@@ -4,9 +4,17 @@
         <div class="logo">
             <h1>Anilist Compare</h1>
         </div>
-        <button class="btn-reset" (click)="resetAll()">
-            <span>✕</span> Reset
-        </button>
+        <div class="header-actions">
+            @if (allLoadedUsers().length > 0) {
+            <button class="btn-refresh" (click)="refreshAllUsers()"
+                title="Force re-fetch all users (bypasses 1-hour cache)">
+                <span>↻</span> Refresh
+            </button>
+            }
+            <button class="btn-reset" (click)="resetAll()">
+                <span>✕</span> Reset
+            </button>
+        </div>
     </header>
 
     <!-- User Chips Bar -->
@@ -83,7 +91,9 @@
             <!-- Right: per-user watch times -->
             <div class="stats-right">
                 @for (wt of stats()?.watchTimes; track wt.name) {
-                <div class="time-card">
+                <div class="time-card" [class.spotlighted]="isSpotlighted(wt.name)"
+                    [class.dimmed]="spotlightUser() !== null && !isSpotlighted(wt.name)"
+                    (click)="toggleSpotlight(wt.name)" title="Click to see {{ wt.name }}'s exclusive shows">
                     <img [src]="wt.avatar" class="time-avatar">
                     <div class="time-info">
                         <span class="time-name">{{ wt.name }}</span>
@@ -99,26 +109,51 @@
         <div class="overlap-filter">
             <span class="filter-label">Seen by:</span>
             @for (level of overlapLevels(); track level) {
-            <button class="filter-tab" [class.active]="(selectedOverlap() ?? loadedUsers().length) === level"
+            <button class="filter-tab"
+                [class.active]="selectedOverlap() === level || (selectedOverlap() === null && level === loadedUsers().length)"
                 (click)="setOverlapFilter(level === loadedUsers().length ? null : level)">
                 {{ overlapLabel(level) }}
             </button>
             }
+            <!-- Any: no overlap restriction -->
+            <button class="filter-tab" [class.active]="selectedOverlap() === 'any'" (click)="setOverlapFilter('any')">
+                Any
+            </button>
 
             <div class="filter-divider"></div>
 
             <button class="filter-tab sort-btn active" (click)="toggleSort()">
                 {{ sortLabel() }}
             </button>
+
+            <button class="filter-tab status-toggle" [class.dropped]="listStatus() === 'DROPPED'"
+                (click)="toggleListStatus()">
+                {{ listStatusLabel() }}
+            </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" placeholder="Search anime by title..." [ngModel]="searchQuery()"
+                (ngModelChange)="searchQuery.set($event)">
+            @if (searchQuery()) {
+            <button class="search-clear" (click)="clearSearch()" title="Clear search">✕</button>
+            }
         </div>
 
         <!-- Shared Anime List -->
         <div class="shared-list-header">
             <h3>
-                @if ((selectedOverlap() ?? loadedUsers().length) === loadedUsers().length) {
-                Shows Everyone Has Watched
+                @if (spotlightUser()) {
+                {{ spotlightUser() }}'s Exclusive Shows
+                } @else if (selectedOverlap() === 'any') {
+                All {{ listStatus() === 'DROPPED' ? 'Dropped' : 'Completed' }} Shows (Anyone)
+                } @else if ((selectedOverlap() ?? loadedUsers().length) === loadedUsers().length) {
+                {{ listStatus() === 'DROPPED' ? 'Dropped' : 'Completed' }} by Everyone
                 } @else {
-                Shows {{ overlapLabel(selectedOverlap()!) }} Have Watched
+                {{ listStatus() === 'DROPPED' ? 'Dropped' : 'Completed' }} by {{ overlapLabel($any(selectedOverlap()))
+                }}
                 }
                 <span class="count-badge">{{ filteredShared().length }}</span>
             </h3>
@@ -126,7 +161,8 @@
 
         <div class="shared-list">
             @for (shared of filteredShared(); track shared.anime.id) {
-            <div class="shared-item">
+            <a class="shared-item" [href]="'https://anilist.co/anime/' + shared.anime.id" target="_blank"
+                rel="noopener noreferrer">
                 <img [src]="shared.anime.coverImage" class="shared-thumb">
                 <span class="title">{{ shared.anime.title }}</span>
                 @if (shared.avgScore > 0) {
@@ -140,7 +176,7 @@
                     </div>
                     }
                 </div>
-            </div>
+            </a>
             }
 
             @if (filteredShared().length === 0) {
