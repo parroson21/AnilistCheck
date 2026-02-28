@@ -746,3 +746,20 @@
     padding: 30px;
     font-size: 0.85rem;
 }
+
+/* ─── Single-User Prompt Banner ─── */
+.single-user-prompt {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    background: rgba(61, 180, 242, 0.06);
+    border: 1px solid rgba(61, 180, 242, 0.18);
+    border-radius: 8px;
+    padding: 7px 14px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+
+    strong {
+        color: var(--primary);
+        font-weight: 600;
+    }
+}

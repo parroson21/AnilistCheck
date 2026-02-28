@@ -71,7 +71,7 @@ export class App implements OnInit {
   protected readonly allSharedEntries = computed<SharedEntry[]>(() => {
     const loaded = this.loadedUsers();
     const status = this.listStatus();
-    if (loaded.length < 2) return [];
+    if (loaded.length < 1) return [];
 
     const animeMap = new Map<number, { anime: UserMedia; users: { name: string; score: number; avatar: string }[] }>();
 
@@ -143,13 +143,13 @@ export class App implements OnInit {
 
     if (sort === 'title-asc') return [...filtered].sort((a, b) => a.anime.title.localeCompare(b.anime.title));
     if (sort === 'title-desc') return [...filtered].sort((a, b) => b.anime.title.localeCompare(a.anime.title));
-    if (sort === 'score-asc') return [...filtered].sort((a, b) => a.avgScore - b.avgScore);
-    return [...filtered].sort((a, b) => b.avgScore - a.avgScore); // score-desc default
+    if (sort === 'score-asc') return [...filtered].sort((a, b) => a.avgScore - b.avgScore || a.anime.title.localeCompare(b.anime.title));
+    return [...filtered].sort((a, b) => b.avgScore - a.avgScore || a.anime.title.localeCompare(b.anime.title)); // score-desc default
   });
 
   protected readonly stats = computed(() => {
     const loaded = this.loadedUsers();
-    if (loaded.length < 2) return null;
+    if (loaded.length < 1) return null;
 
     const fullyShared = this.allSharedEntries().filter(e => e.overlapCount === loaded.length);
 

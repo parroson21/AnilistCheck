@@ -70,6 +70,7 @@
         @if (stats()) {
         <!-- Stats: 2-column layout -->
         <div class="stats-columns">
+            @if (loadedUsers().length > 1) {
             <!-- Left: global stats -->
             <div class="stats-left">
                 <div class="stat-card">
@@ -87,6 +88,7 @@
             </div>
 
             <div class="stats-divider"></div>
+            }
 
             <!-- Right: per-user watch times -->
             <div class="stats-right">
@@ -104,6 +106,11 @@
                 }
             </div>
         </div>
+
+        @if (loadedUsers().length === 1) {
+        <p class="single-user-prompt">Add at least two users using the <strong>Add User</strong> button above to start
+            comparing.</p>
+        }
 
         <!-- Filter + Sort Row -->
         <div class="overlap-filter">
